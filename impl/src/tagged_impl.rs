@@ -1,6 +1,6 @@
 use crate::{ImplArgs, Mode};
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse_quote, Error, ItemImpl, Type, TypePath};
 
 pub(crate) fn expand(args: ImplArgs, mut input: ItemImpl, mode: Mode) -> TokenStream {
@@ -21,7 +21,7 @@ pub(crate) fn expand(args: ImplArgs, mut input: ItemImpl, mode: Mode) -> TokenSt
         },
     };
 
-    augment_impl(&mut input, &name, mode);
+    augment_impl(&mut input, &name, mode, args.write_tag);
 
     let object = &input.trait_.as_ref().unwrap().1;
     let this = &input.self_ty;
@@ -48,14 +48,38 @@ pub(crate) fn expand(args: ImplArgs, mut input: ItemImpl, mode: Mode) -> TokenSt
     expanded
 }
 
-fn augment_impl(input: &mut ItemImpl, name: &TokenStream, mode: Mode) {
+fn augment_impl(input: &mut ItemImpl, name: &TokenStream, mode: Mode, write_tag: bool) {
     if mode.ser {
+        let write_tag_token = if write_tag {
+            format_ident!("true")
+        } else {
+            format_ident!("false")
+        };
         input.items.push(parse_quote! {
             #[doc(hidden)]
             fn typetag_name(&self) -> &'static str {
                 #name
             }
+            // #[doc(hidden)]
+            // fn typetag_write_tag(&self) -> bool {
+            //     true
+            // }
         });
+        // if write_tag {
+        //     input.items.push(parse_quote! {
+        //         #[doc(hidden)]
+        //         fn typetag_is_write_tag(&self) -> bool {
+        //             true
+        //         }
+        //     });
+        // } else {
+        //     input.items.push(parse_quote! {
+        //         #[doc(hidden)]
+        //         fn typetag_is_write_tag(&self) -> bool {
+        //             false
+        //         }
+        //     });
+        // }
     }
 
     if mode.de {

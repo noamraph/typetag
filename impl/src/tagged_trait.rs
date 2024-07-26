@@ -131,6 +131,8 @@ fn augment_trait(input: &mut ItemTrait, mode: Mode) {
         input.items.push(parse_quote! {
             #[doc(hidden)]
             fn typetag_name(&self) -> &'static str;
+            // #[doc(hidden)]
+            // fn typetag_is_write_tag(&self) -> bool;
         });
     }
 
@@ -227,7 +229,8 @@ fn internally_tagged(
 
     let serialize_impl = quote! {
         let name = <Self as #object #ty_generics>::typetag_name(self);
-        typetag::__private::internally::serialize(serializer, #tag, name, self)
+        let write_tag = true; // <Self as #object #ty_generics>::typetag_write_tag(self);
+        typetag::__private::internally::serialize(serializer, #tag, name, write_tag, self)
     };
 
     let deserialize_impl = quote! {

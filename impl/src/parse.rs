@@ -8,6 +8,7 @@ mod kw {
     syn::custom_keyword!(default_variant);
     syn::custom_keyword!(deny_unknown_fields);
     syn::custom_keyword!(name);
+    syn::custom_keyword!(no_write_tag);
 }
 
 pub enum TraitArgs {
@@ -26,6 +27,7 @@ pub enum TraitArgs {
 
 pub struct ImplArgs {
     pub name: Option<LitStr>,
+    pub write_tag: bool,
 }
 
 pub enum Input {
@@ -170,17 +172,30 @@ impl Parse for TraitArgs {
 
 // #[typetag::serde]
 // #[typetag::serde(name = "Tag")]
+// #[typetag::serde(name = "Tag", no_write_tag)]
 impl Parse for ImplArgs {
     fn parse(input: ParseStream) -> Result<Self> {
-        let name = if input.is_empty() {
-            None
+        if input.is_empty() {
+            Ok(ImplArgs {
+                name: None,
+                write_tag: true,
+            })
         } else {
             input.parse::<kw::name>()?;
             input.parse::<Token![=]>()?;
             let name: LitStr = input.parse()?;
-            input.parse::<Option<Token![,]>>()?;
-            Some(name)
-        };
-        Ok(ImplArgs { name })
+            let mut write_tag = true;
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+                if !input.is_empty() {
+                    input.parse::<kw::no_write_tag>()?;
+                    write_tag = false;
+                }
+            }
+            Ok(ImplArgs {
+                name: Some(name),
+                write_tag,
+            })
+        }
     }
 }
