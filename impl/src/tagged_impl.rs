@@ -1,6 +1,6 @@
 use crate::{ImplArgs, Mode};
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{parse_quote, Error, ItemImpl, Type, TypePath};
 
 pub(crate) fn expand(args: ImplArgs, mut input: ItemImpl, mode: Mode) -> TokenStream {
@@ -50,36 +50,18 @@ pub(crate) fn expand(args: ImplArgs, mut input: ItemImpl, mode: Mode) -> TokenSt
 
 fn augment_impl(input: &mut ItemImpl, name: &TokenStream, mode: Mode, write_tag: bool) {
     if mode.ser {
-        let write_tag_token = if write_tag {
-            format_ident!("true")
-        } else {
-            format_ident!("false")
-        };
         input.items.push(parse_quote! {
             #[doc(hidden)]
             fn typetag_name(&self) -> &'static str {
                 #name
             }
-            // #[doc(hidden)]
-            // fn typetag_write_tag(&self) -> bool {
-            //     true
-            // }
         });
-        // if write_tag {
-        //     input.items.push(parse_quote! {
-        //         #[doc(hidden)]
-        //         fn typetag_is_write_tag(&self) -> bool {
-        //             true
-        //         }
-        //     });
-        // } else {
-        //     input.items.push(parse_quote! {
-        //         #[doc(hidden)]
-        //         fn typetag_is_write_tag(&self) -> bool {
-        //             false
-        //         }
-        //     });
-        // }
+        input.items.push(parse_quote! {
+            #[doc(hidden)]
+            fn typetag_is_write_tag(&self) -> bool {
+                #write_tag
+            }
+        });
     }
 
     if mode.de {
