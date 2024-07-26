@@ -26,7 +26,6 @@ where
 pub struct InternallyTaggedSerializer<S> {
     pub tag: &'static str,
     pub variant: &'static str,
-    pub write_tag: bool,
     pub delegate: S,
 }
 
@@ -233,11 +232,8 @@ where
         _: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        let new_len = len + if self.write_tag { 1 } else { 0 };
-        let mut state = self.delegate.serialize_map(Some(new_len))?;
-        if self.write_tag {
-            state.serialize_entry(self.tag, self.variant)?;
-        }
+        let mut state = self.delegate.serialize_map(Some(len + 1))?;
+        state.serialize_entry(self.tag, self.variant)?;
         Ok(SerializeStructAsMap::new(state))
     }
 

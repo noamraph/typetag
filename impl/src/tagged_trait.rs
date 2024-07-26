@@ -17,8 +17,7 @@ pub(crate) fn expand(args: TraitArgs, mut input: ItemTrait, mode: Mode) -> Token
         TraitArgs::Internal {
             tag,
             default_variant,
-            write_tag,
-        } => internally_tagged(tag, default_variant, write_tag, &input),
+        } => internally_tagged(tag, default_variant, &input),
         TraitArgs::Adjacent {
             tag,
             content,
@@ -215,7 +214,6 @@ fn externally_tagged(input: &ItemTrait) -> (TokenStream, TokenStream) {
 fn internally_tagged(
     tag: LitStr,
     default_variant: Option<LitStr>,
-    write_tag: bool,
     input: &ItemTrait,
 ) -> (TokenStream, TokenStream) {
     let object = &input.ident;
@@ -229,7 +227,7 @@ fn internally_tagged(
 
     let serialize_impl = quote! {
         let name = <Self as #object #ty_generics>::typetag_name(self);
-        typetag::__private::internally::serialize(serializer, #tag, name, #write_tag, self)
+        typetag::__private::internally::serialize(serializer, #tag, name, self)
     };
 
     let deserialize_impl = quote! {

@@ -6,7 +6,6 @@ mod kw {
     syn::custom_keyword!(tag);
     syn::custom_keyword!(content);
     syn::custom_keyword!(default_variant);
-    syn::custom_keyword!(dont_write_tag);
     syn::custom_keyword!(deny_unknown_fields);
     syn::custom_keyword!(name);
 }
@@ -16,7 +15,6 @@ pub enum TraitArgs {
     Internal {
         tag: LitStr,
         default_variant: Option<LitStr>,
-        write_tag: bool,
     },
     Adjacent {
         tag: LitStr,
@@ -99,7 +97,6 @@ impl Parse for Input {
 // #[typetag::serde]
 // #[typetag::serde(tag = "type")]
 // #[typetag::serde(tag = "type", default_variant = "default")]
-// #[typetag::serde(tag = "type", dont_write_tag)]
 // #[typetag::serde(tag = "type", content = "content")]
 // #[typetag::serde(tag = "type", content = "content", deny_unknown_fields)]
 // #[typetag::serde(tag = "type", content = "content", default_variant = "default")]
@@ -109,82 +106,64 @@ impl Parse for TraitArgs {
             return Ok(TraitArgs::External);
         }
 
-        let mut tag: Option<LitStr> = None;
-        let mut default_variant: Option<LitStr> = None;
-        let mut content: Option<LitStr> = None;
-        let mut deny_unknown_fields: Option<bool> = None;
-        let mut write_tag: Option<bool> = None;
+        input.parse::<kw::tag>()?;
+        input.parse::<Token![=]>()?;
+        let tag: LitStr = input.parse()?;
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+        }
+        if input.is_empty() {
+            return Ok(TraitArgs::Internal {
+                tag,
+                default_variant: None,
+            });
+        }
 
-        while !input.is_empty() {
-            let lookahead = input.lookahead1();
-            if lookahead.peek(kw::tag) {
-                if tag.is_some() {
-                    return Err(input.error("`tag` given twice"));
-                }
-                input.parse::<kw::tag>()?;
-                input.parse::<Token![=]>()?;
-                tag = Some(input.parse()?);
-            } else if lookahead.peek(kw::default_variant) {
-                if default_variant.is_some() {
-                    return Err(input.error("`default_variant` given twice"));
-                }
-                input.parse::<kw::default_variant>()?;
-                input.parse::<Token![=]>()?;
-                default_variant = Some(input.parse()?);
-            } else if lookahead.peek(kw::content) {
-                if content.is_some() {
-                    return Err(input.error("`content` given twice"));
-                }
-                input.parse::<kw::content>()?;
-                input.parse::<Token![=]>()?;
-                content = Some(input.parse()?);
-            } else if lookahead.peek(kw::deny_unknown_fields) {
-                if deny_unknown_fields.is_some() {
-                    return Err(input.error("`deny_unknown_fields` given twice"));
-                }
-                input.parse::<kw::deny_unknown_fields>()?;
-                deny_unknown_fields = Some(true);
-            } else if lookahead.peek(kw::dont_write_tag) {
-                if write_tag.is_some() {
-                    return Err(input.error("`dont_write_tag` given twice"));
-                }
-                input.parse::<kw::dont_write_tag>()?;
-                write_tag = Some(false);
-            } else {
-                return Err(lookahead.error());
-            }
-
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::content) {
+            input.parse::<kw::content>()?;
+            input.parse::<Token![=]>()?;
+            let content: LitStr = input.parse()?;
             if !input.is_empty() {
                 input.parse::<Token![,]>()?;
             }
-        }
 
-        let tag = match tag {
-            Some(tag) => tag,
-            None => return Err(input.error("`tag` not given")),
-        };
-
-        if let Some(content) = content {
-            if write_tag.is_some() {
-                return Err(input.error("`dont_write_tag` can't be set if `content` is given"));
+            let mut default_variant = None;
+            let mut deny_unknown_fields = false;
+            while !input.is_empty() {
+                let lookahead = input.lookahead1();
+                if default_variant.is_none() && lookahead.peek(kw::default_variant) {
+                    input.parse::<kw::default_variant>()?;
+                    input.parse::<Token![=]>()?;
+                    default_variant = Some(input.parse()?);
+                } else if !deny_unknown_fields && lookahead.peek(kw::deny_unknown_fields) {
+                    input.parse::<kw::deny_unknown_fields>()?;
+                    deny_unknown_fields = true;
+                } else {
+                    return Err(lookahead.error());
+                }
+                if !input.is_empty() {
+                    input.parse::<Token![,]>()?;
+                }
             }
+
             Ok(TraitArgs::Adjacent {
                 tag,
                 content,
                 default_variant,
-                deny_unknown_fields: deny_unknown_fields.unwrap_or(false),
+                deny_unknown_fields,
             })
-        } else {
-            if deny_unknown_fields.is_some() {
-                return Err(
-                    input.error("`deny_unknown_fields` can't be set if `content` is not given")
-                );
-            }
-            Ok(TraitArgs::Internal {
+        } else if lookahead.peek(kw::default_variant) {
+            input.parse::<kw::default_variant>()?;
+            input.parse::<Token![=]>()?;
+            let default_variant: LitStr = input.parse()?;
+            input.parse::<Option<Token![,]>>()?;
+            return Ok(TraitArgs::Internal {
                 tag,
-                default_variant,
-                write_tag: write_tag.unwrap_or(true),
-            })
+                default_variant: Some(default_variant),
+            });
+        } else {
+            Err(lookahead.error())
         }
     }
 }
