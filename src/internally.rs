@@ -18,6 +18,7 @@ pub fn serialize<S, T>(
     serializer: S,
     tag: &'static str,
     variant: &'static str,
+    write_tag: bool,
     concrete: &T,
 ) -> Result<S::Ok, S::Error>
 where
@@ -27,6 +28,7 @@ where
     let adapter = InternallyTaggedSerializer {
         tag,
         variant,
+        write_tag,
         delegate: serializer,
     };
     Wrap(concrete).serialize(adapter)
